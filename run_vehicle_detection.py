@@ -6,15 +6,18 @@ import time
 import matplotlib.pyplot as plt
 from os.path import basename, splitext
 from moviepy.editor import VideoFileClip, ImageSequenceClip
+from sklearn.preprocessing import StandardScaler
+from sklearn.cross_validation import train_test_split
+
 #
+import VehicleDetector 
 from feature_utils import *
-from box_utils import *
 from svc_utils import *
-from VehicleDetector import *
 
-
+# Class to hold constants defining features for SVC training
 class FeatureParams():
     def __init__(self):
+
         # colorspace
         self.color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 
@@ -73,13 +76,13 @@ def train():
     ## Tunable parameters
 
     # Load feature parameters
-    features = Features()
-    features.print()
+    feature_params = FeatureParams()
+    feature_params.print()
 
     # Extract features
     t=time.time()
-    car_features =    features.extract_features(cars)
-    notcar_features = features.extract_features(notcars)
+    car_features =    extract_features(feature_params, cars)
+    notcar_features = extract_features(feature_params, notcars)
     t2 = time.time()
     print(round(t2-t, 2), 'Seconds to extract features...')
 
@@ -105,64 +108,89 @@ def train():
     train_svc(X_train, y_train, X_scaler)
     test_svc(X_test, y_test)
 
+# Test the pipeline on still iamges
+def test(fname='test_images/*.jpg'):
 
-
-
-def test():
-    vehicle_detector = VehicleDetector(FeatureParams())
-
-    fnames = glob.glob('test_images/*.jpg')
-    # fnames = [fnames[2]]
-
+    # Get list of images
+    fnames = glob.glob(fname)
     for fname in fnames:
-        t1 = time.time()
+        # Initialize new VehicleDetector object
+        vehicle_detector = VehicleDetector.VehicleDetector(FeatureParams())
+
+        # Read test image
         img = cv2.imread(fname)
-        img_out, img_out2 = vehicle_detector.process_img(frame)
+
+        # process_img
+        t1 = time.time()
+        vehicle_detector.process_img(img)
         t2 = time.time()
-        print("{:.01f} seconds".format(t2-t1))
-        plt.imshow(BGR2_(img_out, 'RGB'))
-        plt.show()
+        print("{:.02f} seconds".format(t2-t1))
 
+        # Make plots
+        vehicle_detector.plot_images()
+        vehicle_detector.plot()
 
-def run(fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps=16):
-    vehicle_detector = VehicleDetector(FeatureParams())
+# Function to process a video stream
+def run(do_plot=False, fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps=16):
 
+    # Initialize VehicleDetector object
+    vehicle_detector = VehicleDetector.VehicleDetector(FeatureParams())
+
+    # Open video file
     clip = VideoFileClip(fname)
+
+    # Calculate video # of frames
     n_frames = int(clip.fps * clip.duration)
     n_frames = min(MAX_FRAMES, n_frames) 
+
+    # Initialize frame counter
     count = 0
+
+    # Initialize output video image lists
     images_list = []
     images_list2 = []
 
+    # Loop through all frames
     for frame in clip.iter_frames():
+        # increment counter
         count = count+1
+
+        # Process only every n_mod frame
         if count % n_mod == 0:
+
             t1 = time.time()
+
+            # Get frame and convert to BGR
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) 
-            img_out, img_out2 = vehicle_detector.process_img(frame)
-            img_out = BGR2_(img_out, 'RGB')
-            images_list.append(img_out)
 
-            img_out2 = cv2.addWeighted(img_out2, 1, img_out, 0.5, 0)
-            images_list2.append(img_out2)
+            # Process image
+            vehicle_detector.process_img(frame)
 
+            # Append img_out for output video
+            images_list.append(vehicle_detector.img_out)
+
+            # Plot if desired
+            if do_plot:
+                vehicle_detector.plot_images()
+                images_list2.append(vehicle_detector.draw_img_found)
 
             t2 = time.time()
             print("{} of {} frames. {:.02f} seconds. {:.0f} of {} steps. {:.02f} seconds remain".format(
                 count, n_frames, t2 - t1, count/n_mod, n_frames//n_mod, (n_frames//n_mod - count/n_mod)*(t2-t1)))
+
+        # Break loop if MAX_FRAMES reached
         if count >= MAX_FRAMES:
             break
 
+    # Save output video
     clip = ImageSequenceClip(images_list, fps=fps)
-
-
     savename = splitext(basename(fname))[0]
     savename = 'out_imgs/' + savename + '_out.mp4'
     clip.write_videofile(savename)
 
-    clip2 = ImageSequenceClip(images_list2, fps=fps)
-    savename = splitext(basename(fname))[0]
-    savename = 'out_imgs/' + savename + '_out_heat.mp4'
-    clip2.write_videofile(savename) 
-
-    return clip
+    # Optionally save extra output video
+    if do_plot:
+        clip2 = ImageSequenceClip(images_list2, fps=fps)
+        savename = splitext(basename(fname))[0]
+        savename = 'out_imgs/' + savename + '_out_plot.mp4'
+        clip2.write_videofile(savename) 
