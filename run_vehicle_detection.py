@@ -120,14 +120,14 @@ def pipeline(img, windows, svc, X_scaler, features):
     # heat = add_heat(heat,on_windows)
 
 
-    img_out1, on_windows = features.find_cars(img, 380, 622, 1.8, svc, X_scaler, (1,1))
+    img_out1, on_windows = features.find_cars(img, 380, 622, 2.0, svc, X_scaler, (1,1))
     heat = add_heat(heat,on_windows)
 
-    img_out1, on_windows = features.find_cars(img, 410, 610, 1.5, svc, X_scaler, (2,1))
+    img_out1, on_windows = features.find_cars(img, 410, 540, 1.2, svc, X_scaler, (1,1))
     heat = add_heat(heat,on_windows)
 
-    # img_out1, on_windows = features.find_cars(img, 390, 550, 1.5, svc, X_scaler, (2,2))
-    # heat = add_heat(heat,on_windows)
+    img_out1, on_windows = features.find_cars(img, 390, 550, 1.5, svc, X_scaler, (2,2))
+    heat = add_heat(heat,on_windows)
 
 
     t2 = time.time()
@@ -201,8 +201,8 @@ def run(fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps=16):
     images_list = []
     images_list2 = []
 
-    MAP_MAX = 10
-    MAP_MIN = -30
+    MAP_MAX = 8
+    MAP_MIN = -12
     global_heat = None
     for frame in clip.iter_frames():
 
@@ -216,7 +216,7 @@ def run(fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps=16):
                 global_heat = np.zeros_like(frame[:,:,0]).astype(np.float)
             curr_heat = pipeline(frame, windows, svc, X_scaler, features)
             # print(np.max(curr_heat))
-            global_heat += curr_heat-2
+            global_heat += curr_heat-1
             # global_heat = curr_heat
 
             global_heat[global_heat < MAP_MIN] = MAP_MIN
