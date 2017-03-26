@@ -1,12 +1,7 @@
 import numpy as np
 import cv2
-import glob
-import time
-import pickle
-from sklearn.svm import LinearSVC
-from sklearn.preprocessing import StandardScaler
 from skimage.feature import hog
-from sklearn.cross_validation import train_test_split
+import time
 from feature_utils import *
 
 class Features():
@@ -26,10 +21,11 @@ class Features():
         # HOG tunables
         self.hog_feat = True
         self.orient = 9 # 9
-        self.pix_per_cell = 32 # 8
+        self.pix_per_cell = 8 # 8
         self.cell_per_block = 2 # 2
         self.hog_channel = "ALL" # Can be 0, 1, 2, or "ALL"
 
+    def print(self):
         print('Using:', self.n_spatial, 'spatial', 
              self.hist_bins, 'hist_bins',
              self.orient,'orientations', 
@@ -45,7 +41,7 @@ class Features():
         img_features = []
 
         #2) Apply color conversion if other than 'RGB'
-        feature_image = RGB2_(img, self.color_space)
+        feature_image = BGR2_(img, self.color_space)
 
         #3) Compute spatial features if flag is set
         if self.spatial_feat == True:
@@ -93,138 +89,110 @@ class Features():
             features.append(img_features)
         # Return list of feature vectors
         return features
-    
-# # Define a function you will pass an image 
-# # and the list of windows to be searched (output of slide_windows())
-# def search_windows(img, windows, clf, scaler, color_space='RGB', 
-#                     spatial_size=(32, 32), hist_bins=32, 
-#                     hist_range=(0, 256), orient=9, 
-#                     pix_per_cell=8, cell_per_block=2, 
-#                     hog_channel=0, spatial_feat=True, 
-#                     hist_feat=True, hog_feat=True):
 
-#     #1) Create an empty list to receive positive detection windows
-#     on_windows = []
-#     #2) Iterate over all windows in the list
-#     for window in windows:
-#         #3) Extract the test window from original image
-#         test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))      
-#         #4) Extract features for that window using single_img_features()
-#         features = single_img_features(test_img, color_space=color_space, 
-#                             spatial_size=spatial_size, hist_bins=hist_bins, 
-#                             orient=orient, pix_per_cell=pix_per_cell, 
-#                             cell_per_block=cell_per_block, 
-#                             hog_channel=hog_channel, spatial_feat=spatial_feat, 
-#                             hist_feat=hist_feat, hog_feat=hog_feat)
-#         #5) Scale extracted features to be fed to classifier
-#         test_features = scaler.transform(np.array(features).reshape(1, -1))
-#         #6) Predict using your classifier
-#         prediction = clf.predict(test_features)
-#         #7) If positive (prediction == 1) then save the window
-#         if prediction == 1:
-#             on_windows.append(window)
-#     #8) Return windows for positive detections
-#     return on_windows
+    # Define a function you will pass an image 
+    # and the list of windows to be searched (output of slide_windows())
+    def search_windows(self, img, windows, clf, scaler):
 
-def train_hog_features():
-    # Divide up into cars and notcars
-    vehicle_dirs = ['training_data/vehicles/GTI_MiddleClose',
-                    'training_data/vehicles/GTI_Left',
-                    'training_data/vehicles/GTI_Far',
-                    'training_data/vehicles/GTI_Right',
-                    'training_data/vehicles/KITTI_extracted'
-                     ]
+        #1) Create an empty list to receive positive detection windows
+        on_windows = []
+        #2) Iterate over all windows in the list
+        for window in windows:
+            #3) Extract the test window from original image
+            test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))     
 
-    non_vehicle_dirs = ['training_data/non-vehicles/GTI',
-                        'training_data/non-vehicles/Extras',
-                     ]
-    cars = []
-    notcars = []
-    for currdir in vehicle_dirs:
-        cars.extend(glob.glob(currdir + '/*.png'))
+            #4) Extract features for that window using single_img_features()
+            features = self.single_img_features(test_img)
 
-    for currdir in non_vehicle_dirs:
-        notcars.extend(glob.glob(currdir + '/*.png'))
+            #5) Scale extracted features to be fed to classifier
+            test_features = scaler.transform(np.array(features).reshape(1, -1))
 
-    # Shuffle data, only important if you are subsampling
-    np.random.shuffle(cars)
-    np.random.shuffle(notcars)
+            #6) Predict using your classifier
+            prediction = clf.predict(test_features)
 
-    # Reduce the sample size because HOG features are slow to compute
-    # The quiz evaluator times out after 13s of CPU time
-    sample_size = 2000
-    cars = cars[0:sample_size]
-    notcars = notcars[0:sample_size]
+            #7) If positive (prediction == 1) then save the window
+            if prediction == 1:
+                on_windows.append(window)
+        #8) Return windows for positive detections
+        return on_windows
 
-    ## Tunable parameters
+    # Define a single function that can extract features using hog sub-sampling and make predictions
+    def find_cars(self, img, ystart, ystop, scale, svc, X_scaler, skips):
 
-    # Load feature parameters
-    features = Features()
+        draw_img = np.copy(img)
+        #img = img.astype(np.float32)/255
+        
+        img_tosearch = img[ystart:ystop,:,:]
+        ctrans_tosearch = BGR2_(img_tosearch, self.color_space)
+        if scale != 1:
+            imshape = ctrans_tosearch.shape
+            ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
+            
+        ch1 = ctrans_tosearch[:,:,0]
+        ch2 = ctrans_tosearch[:,:,1]
+        ch3 = ctrans_tosearch[:,:,2]
 
-    # Extract features
-    t=time.time()
-    car_features =    features.extract_features(cars)
-    notcar_features = features.extract_features(notcars)
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to extract features...')
+        # Define blocks and steps as above
+        nxblocks = (ch1.shape[1] // self.pix_per_cell)-1
+        nyblocks = (ch1.shape[0] // self.pix_per_cell)-1 
+        nfeat_per_block = self.orient*self.cell_per_block**2
+        # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
+        window = 64
+        nblocks_per_window = (window // self.pix_per_cell)-1 
+        cells_per_step = 2  # Instead of overlap, define how many cells to step
+        nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+        nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+        # print(nxsteps, nysteps)
+        
+        t1 = time.time()
+        # Compute individual channel HOG features for the entire image
+        hog1 = get_hog_features(ch1, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+        hog2 = get_hog_features(ch2, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+        hog3 = get_hog_features(ch3, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+        t2 = time.time()
+        # print("{} seconds".format(t2-t1))  
+        on_windows = []
+        for xb in range(nxsteps):
+            if xb % skips[0] == 0:
+                for yb in range(nysteps):
+                    if yb % skips[1] == 0:
+                        ypos = yb*cells_per_step
+                        xpos = xb*cells_per_step
+                        # Extract HOG for this patch
+                        hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                        hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                        hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                        hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
 
-    # Create an array stack of feature vectors
-    X = np.vstack((car_features, notcar_features)).astype(np.float64)  
+                        xleft = xpos*self.pix_per_cell
+                        ytop = ypos*self.pix_per_cell
 
-    # Fit a per-column scaler
-    X_scaler = StandardScaler().fit(X)
+                        # Extract the image patch
+                        subimg = cv2.resize(ctrans_tosearch[ytop:ytop+window, xleft:xleft+window], (64,64))
+                      
+                        # Get color features
+                        spatial_features = bin_spatial(subimg, size=self.spatial_size)
+                        hist_features = color_hist(subimg, nbins=self.hist_bins)
 
-    # Apply the scaler to X
-    scaled_X = X_scaler.transform(X)
+                        # Scale features and make a prediction
+                        test_features = X_scaler.transform(np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))    
+                        test_prediction = svc.predict(test_features)
+                        # test_prediction = 1
+                        
+                        if test_prediction == 1:
+                            xbox_left = np.int(xleft*scale)
+                            ytop_draw = np.int(ytop*scale)
+                            win_draw = np.int(window*scale)
+                            rect = ((xbox_left, ytop_draw+ystart), (xbox_left+win_draw,ytop_draw+win_draw+ystart))
+                            cv2.rectangle(draw_img,rect[0], rect[1],(0,0,255),6) 
+                            on_windows.append(rect)
+                        else:
+                            xbox_left = np.int(xleft*scale)
+                            ytop_draw = np.int(ytop*scale)
+                            win_draw = np.int(window*scale)
+                            rect = ((xbox_left, ytop_draw+ystart), (xbox_left+win_draw,ytop_draw+win_draw+ystart))
+                            cv2.rectangle(draw_img,rect[0], rect[1],(255,0,0),6) 
+          
 
-    # Define the labels vector
-    y = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
-
-    print('Feature vector length:', len(scaled_X[0]))
-
-    # Split up data into randomized training and test sets
-    rand_state = np.random.randint(0, 100)
-    X_train, X_test, y_train, y_test = train_test_split(
-        scaled_X, y, test_size=0.2, random_state=rand_state)
-
-    train_svc(X_train, y_train)
-    test_svc(X_test, y_test)
-
-def train_svc(X_train, y_train):
-    # Use a linear SVC 
-    svc = LinearSVC()
-    # Check the training time for the SVC
-    t=time.time()
-    svc.fit(X_train, y_train)
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to train SVC...')
-
-    t=time.time()
-    svc_pickle = {}
-    svc_pickle["svc"] = svc
-    pickle.dump( svc_pickle, open( "svc.p", "wb" ) )
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to save SVC to pickle...')
-
-    return svc
-
-def test_svc(X_test, y_test):
-    t=time.time()
-    svc_pickle = pickle.load( open( "svc.p", "rb" ) )
-    svc = svc_pickle["svc"]
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to load SVC from pickle...')
-
-    # Check the score of the SVC
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
-    # Check the prediction time for a single sample
-    t=time.time()
-    n_predict = 10
-    print('My SVC predicts:     ', svc.predict(X_test[0:n_predict]))
-    print('For these',n_predict, 'labels: ', y_test[0:n_predict])
-    t2 = time.time()
-    print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
-
-# def test_svc(X_test, y_test):
-#     svc_pickle = pickle.load( open( "svc.p", "rb" ) )
-#     svc = svc_pickle["svc"]
+        return draw_img, on_windows
+        

@@ -42,14 +42,15 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
     # Return the individual histograms, bin_centers and feature vector
     return hist_features
 
-def RGB2_(img, color_space):
+def BGR2_(img, color_space):
     color_options = {
-        'RGB':   0,
-        'HSV':   cv2.COLOR_RGB2HSV,
-        'LUV':   cv2.COLOR_RGB2LUV,
-        'HLS':   cv2.COLOR_RGB2HLS,
-        'YUV':   cv2.COLOR_RGB2YUV,
-        'YCrCb': cv2.COLOR_RGB2YCrCb
+        'BGR':   0,
+        'RGB':   cv2.COLOR_BGR2RGB,
+        'HSV':   cv2.COLOR_BGR2HSV,
+        'LUV':   cv2.COLOR_BGR2LUV,
+        'HLS':   cv2.COLOR_BGR2HLS,
+        'YUV':   cv2.COLOR_BGR2YUV,
+        'YCrCb': cv2.COLOR_BGR2YCrCb
     }
 
     conversion = color_options.get(color_space)
