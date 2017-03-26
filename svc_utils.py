@@ -3,7 +3,7 @@ import pickle
 from sklearn.svm import LinearSVC
 
 
-def train_svc(X_train, y_train, X_scaler):
+def train_svc(X_train, y_train, X_scaler, fname="svc.p"):
     # Use a linear SVC 
     svc = LinearSVC()
     # Check the training time for the SVC
@@ -16,7 +16,7 @@ def train_svc(X_train, y_train, X_scaler):
     svc_pickle = {}
     svc_pickle["svc"] = svc
     svc_pickle["X_scaler"] = X_scaler
-    pickle.dump( svc_pickle, open( "svc.p", "wb" ) )
+    pickle.dump( svc_pickle, open( fname, "wb" ) )
     t2 = time.time()
     print(round(t2-t, 2), 'Seconds to save SVC to pickle...')
 
@@ -35,8 +35,8 @@ def test_svc(X_test, y_test):
     t2 = time.time()
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
-def load_svc():
-    svc_pickle = pickle.load( open( "svc.p", "rb" ) )
+def load_svc(fname="svc.p"):
+    svc_pickle = pickle.load( open( fname, "rb" ) )
     svc = svc_pickle["svc"]
     X_scaler = svc_pickle["X_scaler"]
     return svc, X_scaler

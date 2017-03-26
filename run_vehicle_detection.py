@@ -2,20 +2,44 @@ import numpy as np
 import cv2
 import glob
 import time
-import pickle
-from sklearn.svm import LinearSVC
-from sklearn.preprocessing import StandardScaler
-from skimage.feature import hog
-from sklearn.cross_validation import train_test_split
+
 import matplotlib.pyplot as plt
 from os.path import basename, splitext
 from moviepy.editor import VideoFileClip, ImageSequenceClip
-from scipy.ndimage.measurements import label
 #
 from feature_utils import *
-from windows import *
+from box_utils import *
 from svc_utils import *
-from Features import *
+from VehicleDetector import *
+
+
+class FeatureParams():
+    def __init__(self):
+        # colorspace
+        self.color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+
+        # spatial features
+        self.spatial_feat = True
+        self.n_spatial = 16
+        self.spatial_size = (self.n_spatial, self.n_spatial)
+
+        # hist features
+        self.hist_feat = True
+        self.hist_bins = 1024
+
+        # HOG tunables
+        self.hog_feat = True
+        self.orient = 9 # 9
+        self.pix_per_cell = 8 # 8
+        self.cell_per_block = 2 # 2
+        self.hog_channel = "ALL" # Can be 0, 1, 2, or "ALL"
+
+    def print(self):
+        print('Using:', self.n_spatial, 'spatial', 
+             self.hist_bins, 'hist_bins',
+             self.orient,'orientations', 
+             self.pix_per_cell, 'pixels per cell and', 
+             self.cell_per_block,'cells per block')
 
 def train():
     # Divide up into cars and notcars
@@ -82,117 +106,26 @@ def train():
     test_svc(X_test, y_test)
 
 
-def pipeline(img, windows, svc, X_scaler, features):
 
-    heat = np.zeros_like(img[:,:,0]).astype(np.float)
-    #on_windows = features.search_windows(img, windows, svc, X_scaler)
-
-    # img_out1, on_windows = features.find_cars(img, 400, 656, 2.0, svc, X_scaler)
-    # heat = add_heat(heat,on_windows)
-
-    # # img_out1, on_windows = features.find_cars(img, 390, 600, 1.4, svc, X_scaler)
-    # # heat = add_heat(heat,on_windows)
-
-    # img_out1, on_windows = features.find_cars(img, 390, 510, 0.8, svc, X_scaler)
-    # heat = add_heat(heat,on_windows)
-
-
-    #img_out1, on_windows = features.find_cars(img, 400, 656, 2.0, svc, X_scaler)
-    #heat = add_heat(heat,on_windows)
-
-    t1 = time.time()
-    # # img_out1, on_windows = features.find_cars(img, 380, 650, 2.55, svc, X_scaler, (1,1))
-    # # heat = add_heat(heat,on_windows)
-
-    # img_out1, on_windows = features.find_cars(img, 380, 622, 2.15, svc, X_scaler, (2,1))
-    # heat = add_heat(heat,on_windows)
-
-    # img_out1, on_windows = features.find_cars(img, 410, 610, 1.8, svc, X_scaler, (1,1))
-    # heat = add_heat(heat,on_windows)
-
-    # # img_out1, on_windows = features.find_cars(img, 410, 580, 1.4, svc, X_scaler, (1,1))
-    # # heat = add_heat(heat,on_windows)
-
-    # # img_out1, on_windows = features.find_cars(img, 390, 510, .8, svc, X_scaler)
-    # # heat = add_heat(heat,on_windows)
-
-    # img_out1, on_windows = features.find_cars(img, 390, 550, 1.2, svc, X_scaler, (3,3))
-    # heat = add_heat(heat,on_windows)
-
-
-    img_out1, on_windows = features.find_cars(img, 380, 622, 2.0, svc, X_scaler, (1,1))
-    heat = add_heat(heat,on_windows)
-
-    img_out1, on_windows = features.find_cars(img, 410, 540, 1.2, svc, X_scaler, (1,1))
-    heat = add_heat(heat,on_windows)
-
-    img_out1, on_windows = features.find_cars(img, 390, 550, 1.5, svc, X_scaler, (2,2))
-    heat = add_heat(heat,on_windows)
-
-
-    t2 = time.time()
-    # print(t2-t1)
-    # plt.imshow(heat)
-
-    return heat
-
-def heat_to_img(img, heat, threshold):
-    heat_thresh = apply_threshold(heat, threshold)
-    labels = label(heat_thresh)
-    img_out = draw_labeled_bboxes(img, labels)
-    return img_out, heat_thresh
 
 def test():
-    svc, X_scaler = load_svc()
-    features = Features()
+    vehicle_detector = VehicleDetector(FeatureParams())
 
     fnames = glob.glob('test_images/*.jpg')
     # fnames = [fnames[2]]
-    windows = get_windows()
-    windows = []
-    print(len(windows))
 
     for fname in fnames:
         t1 = time.time()
         img = cv2.imread(fname)
-        heat = pipeline(img, windows, svc, X_scaler, features)
-        img_out = heat_to_img(img, heat)
+        img_out, img_out2 = vehicle_detector.process_img(frame)
         t2 = time.time()
         print("{:.01f} seconds".format(t2-t1))
         plt.imshow(BGR2_(img_out, 'RGB'))
         plt.show()
 
-def test2():
-    svc, X_scaler = load_svc()
-    img = cv2.imread('test_images/test6.jpg')
-
-    features = Features()
-
-    t = time.time()
-
-    # windows.extend(slide_window(img_shape, y_start_stop=[400, 700], xy_window=(sz*3, sz*3), xy_overlap=overlap))
-    # windows.extend(slide_window(img_shape, y_start_stop=[400, 550], xy_window=(sz*2, sz*2), xy_overlap=overlap))
-    # windows.extend(slide_window(img_shape, y_start_stop=[400, 500], xy_window=(sz*1, sz*1), xy_overlap=overlap))
-
-    img_out = features.find_cars(img,     720, 400, 0.5, svc, X_scaler)
- #   img_out = features.find_cars(img, 400, 550, 0.5, svc, X_scaler)
- #   img_out = features.find_cars(img, 400, 500, 1.0, svc, X_scaler)
-
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to search windows...')
-
-    # img_out = draw_boxes(img, on_windows, color=(0, 0, 255), thick=6)
-    plt.imshow(BGR2_(img_out, 'RGB'))
-    plt.show()
-    return img_out
-
 
 def run(fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps=16):
-    svc, X_scaler = load_svc()
-
-    windows = get_windows()
-    print(len(windows))
-    features = Features()
+    vehicle_detector = VehicleDetector(FeatureParams())
 
     clip = VideoFileClip(fname)
     n_frames = int(clip.fps * clip.duration)
@@ -201,43 +134,16 @@ def run(fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps=16):
     images_list = []
     images_list2 = []
 
-    MAP_MAX = 8
-    MAP_MIN = -12
-    global_heat = None
     for frame in clip.iter_frames():
-
-
         count = count+1
         if count % n_mod == 0:
-
             t1 = time.time()
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) 
-            if global_heat is None:
-                global_heat = np.zeros_like(frame[:,:,0]).astype(np.float)
-            curr_heat = pipeline(frame, windows, svc, X_scaler, features)
-            # print(np.max(curr_heat))
-            global_heat += curr_heat-1
-            # global_heat = curr_heat
-
-            global_heat[global_heat < MAP_MIN] = MAP_MIN
-            global_heat[global_heat > MAP_MAX] = MAP_MAX
-            img_out = frame
-            img_out, heat_thresh = heat_to_img(frame, global_heat, 0)
-
+            img_out, img_out2 = vehicle_detector.process_img(frame)
             img_out = BGR2_(img_out, 'RGB')
             images_list.append(img_out)
 
-            tmp = np.copy(global_heat)
-            tmp = (tmp - MAP_MIN)*255/(MAP_MAX - MAP_MIN)
-            tmp *= 0.8
-
-            img_out2 = np.zeros_like(img_out)
-            img_out2[:,:,0] = tmp
-            img_out2[:,:,1] = heat_thresh*255/np.max(heat_thresh)
-            # img_out2[:,:,2] = tmp
-
             img_out2 = cv2.addWeighted(img_out2, 1, img_out, 0.5, 0)
-
             images_list2.append(img_out2)
 
 
