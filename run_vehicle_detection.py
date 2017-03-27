@@ -18,9 +18,6 @@ from svc_utils import *
 class FeatureParams():
     def __init__(self):
 
-        # colorspace
-        self.color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-
         # spatial features
         self.spatial_feat = True
         self.n_spatial = 16
@@ -29,6 +26,9 @@ class FeatureParams():
         # hist features
         self.hist_feat = True
         self.hist_bins = 1024
+
+        # colorspace
+        self.color_space = 'YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 
         # HOG tunables
         self.hog_feat = True
@@ -64,7 +64,7 @@ def train():
     for currdir in non_vehicle_dirs:
         notcars.extend(glob.glob(currdir + '/*.png'))
 
-    # Shuffle data, only important if you are subsampling
+    # Shuffle data, only important if you are subsampling, because data is shuffled again in train_test_split
     np.random.shuffle(cars)
     np.random.shuffle(notcars)
 
@@ -113,6 +113,7 @@ def test(fname='test_images/*.jpg'):
 
     # Get list of images
     fnames = glob.glob(fname)
+    # fnames = [fnames[3]]
     for fname in fnames:
         # Initialize new VehicleDetector object
         vehicle_detector = VehicleDetector.VehicleDetector(FeatureParams())
@@ -194,3 +195,59 @@ def run(do_plot=False, fname='project_video.mp4', MAX_FRAMES=10000, n_mod=1, fps
         savename = splitext(basename(fname))[0]
         savename = 'out_imgs/' + savename + '_out_plot.mp4'
         clip2.write_videofile(savename) 
+
+# Function for creating example HOG plot
+def hog_example_plot():
+    # Load feature params
+    feature_params = FeatureParams()
+
+    # image file names
+    fname1 = 'output_images/car.png'
+    fname2 = 'output_images/not_car.png'
+
+    # Read images
+    img1 = cv2.imread(fname1)
+    img2 = cv2.imread(fname2)
+
+    # Convert color space
+    feature_image1 = BGR2_(img1, feature_params.color_space)
+    feature_image2 = BGR2_(img2, feature_params.color_space)
+
+    # Used for plot titles
+    channel_names = ['Y', 'Cr', 'Cb']
+
+    # Initialize figure
+    fig = plt.figure(figsize=(3,4))
+
+    # Loop through color channels
+    for i in range(3):
+
+        # Get hog features with vis=True
+        features1, hog_image1 = get_hog_features(feature_image1[:,:,i], 
+                            feature_params.orient, feature_params.pix_per_cell, feature_params.cell_per_block, 
+                            vis=True, feature_vec=False)
+
+        features2, hog_image2 = get_hog_features(feature_image2[:,:,i], 
+                        feature_params.orient, feature_params.pix_per_cell, feature_params.cell_per_block, 
+                        vis=True, feature_vec=False)
+
+        # Plot car color channel
+        plt.subplot(3,4,4*i+1)
+        plt.imshow(feature_image1[:,:,i], 'gray')
+        plt.title('Car CH ' + channel_names[i])
+
+        # Plot car HOG image
+        plt.subplot(3,4,4*i+2)
+        plt.title('Car CH ' + channel_names[i] + ' HOG')
+        plt.imshow(hog_image1, 'gray')
+
+        # Plot not car color channel
+        plt.subplot(3,4,4*i+3)
+        plt.imshow(feature_image2[:,:,i], 'gray')
+        plt.title('not-Car CH ' + channel_names[i])
+
+        # Plot not car HOG image
+        plt.subplot(3,4,4*i+4)
+        plt.imshow(hog_image2, 'gray')
+        plt.title('not-Car CH ' + channel_names[i] + ' HOG')
+    plt.show()

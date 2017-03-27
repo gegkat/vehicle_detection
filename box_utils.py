@@ -57,7 +57,7 @@ def find_cars(img, feature_params, window_params, svc, X_scaler):
     ystop  = window_params.ylims[1]
     scale = window_params.scale
     
-    xstart = 700
+    xstart = 0
     xstop = 1280
 
     # limit img to between ystart and ystop

@@ -37,8 +37,12 @@ class VehicleDetector():
 
         # List of WindoParams objects for defining search windows at different scales
         self.window_params_list = []
-        self.window_params_list.append(WindowParams(ylims=(380,610), scale=1.8, xy_skips=(1,1)))
-        self.window_params_list.append(WindowParams(ylims=(400,520), scale=1.2, xy_skips=(2,1)))
+        # self.window_params_list.append(WindowParams(ylims=(380,610), scale=1.8, xy_skips=(1,1)))
+        # self.window_params_list.append(WindowParams(ylims=(400,520), scale=1.2, xy_skips=(2,1)))
+
+        self.window_params_list.append(WindowParams(ylims=(350,630), scale=1.7, xy_skips=(1,1)))
+        self.window_params_list.append(WindowParams(ylims=(370,570), scale=1.3, xy_skips=(1,1)))
+        self.window_params_list.append(WindowParams(ylims=(400,520), scale=1.0, xy_skips=(2,2)))
 
         # For plotting only
         self.on_windows_list = []
@@ -78,7 +82,7 @@ class VehicleDetector():
         # at each index. At each timestep we decrement the heatmap by 1 and then 
         # increment it by the curr_heatmap. That way we are combining previous 
         # knowledge of where cars were detected with new knowledge
-        self.heatmap += -1
+        self.heatmap += -2
         self.heatmap += self.curr_heatmap
 
         # Saturate the heatmap to limit the amount of time to respond
@@ -102,13 +106,17 @@ class VehicleDetector():
     def plot_images(self):
         draw_img_all = np.copy(self.orig_img)
         draw_img_all = BGR2_(draw_img_all, 'RGB')
-        colors = [(255,0,0), (0, 255, 0), (255, 255, 0)]
+        colors = [(255,0,0), (0, 255, 0), (255, 255, 0), (255, 0, 255)]
         count = 0
         self.draw_img_all_list = []
         for i in range(len(self.all_windows_list)):
             draw_img_all = np.copy(self.orig_img)
             for rect in self.all_windows_list[i]:
-                cv2.rectangle(draw_img_all, rect[0], rect[1], colors[i], 6)
+                cv2.rectangle(draw_img_all, rect[0], rect[1], colors[1], 6)
+
+            # Plot first box again in a different color to show size
+            rect = self.all_windows_list[i][0]
+            cv2.rectangle(draw_img_all, rect[0], rect[1], colors[3], 6)
 
             for rect in self.on_windows_list[i]:
                 cv2.rectangle(draw_img_all, rect[0], rect[1], (0,0,255), 6)
@@ -124,9 +132,10 @@ class VehicleDetector():
 
   
         heat_img = np.zeros_like(self.orig_img)
-        heat_img[:,:,0] = self.curr_heatmap*255/10
-        heat_img[:,:,1] = self.curr_heatmap*255/10
-        heat_img[:,:,2] = self.curr_heatmap*255/10
+        heat_max = np.max(self.curr_heatmap)
+        heat_img[:,:,0] = self.curr_heatmap*255/heat_max
+        heat_img[:,:,1] = self.curr_heatmap*255/heat_max
+        heat_img[:,:,2] = self.curr_heatmap*255/heat_max
 
         heat_img = draw_labeled_bboxes(heat_img, self.labels)
 
@@ -160,13 +169,38 @@ class VehicleDetector():
 
     # Function to plot all plot images
     def plot(self):
-        f,axs = plt.subplots(2,3, figsize=(20,12))
+        fig = plt.figure(figsize=(20, 12))
+
         for i in range(len(self.all_windows_list)):
-            axs[0, i].imshow(self.draw_img_all_list[i])
-        axs[0, 2].imshow(self.draw_img_found)
-        axs[1, 0].imshow(self.heat_img)
-        axs[1, 1].imshow(self.heat_thresh_img)
-        axs[1, 2].imshow(self.img_out)
+            plt.subplot(len(self.all_windows_list),2,2*i+1)
+            plt.imshow(self.draw_img_all_list[i])
+            plt.title('Sliding Search Windows Scale: {} Spacing: ({}, {})'.format(
+                self.window_params_list[i].scale, 
+                self.window_params_list[i].xy_skips[0],
+                self.window_params_list[i].xy_skips[1]
+                ))
+
+        plt.subplot(1,2,2)
+        plt.imshow(self.draw_img_found)
+        plt.title('Car Found windows')
+
+        fig = plt.figure(figsize=(20, 12))
+
+        plt.subplot(2,2,1)
+        plt.imshow(self.draw_img_found)
+        plt.title('Car Found windows')
+
+        plt.subplot(2,2,2)
+        plt.imshow(self.heat_img)
+        plt.title('Heat map of cars found')
+
+        plt.subplot(2,2,4)
+        plt.imshow(self.heat_thresh_img)
+        plt.title('Thresholded heat map')
+
+        plt.subplot(2,2,3)
+        plt.imshow(self.img_out)
+        plt.title('Output image')
         plt.show()
 
 
