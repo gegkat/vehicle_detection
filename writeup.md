@@ -50,19 +50,19 @@ Here is an example using the `YCrCb` color space and HOG parameters of `orientat
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters trading off between speed and accuracy. I found that use 'ALL' for the hog_channel was critical in getting high accuracy, although it does triple the # of features and increase training time. I found that no matter what parameters I chose, the time for prediction was always extremely fast. I found that the YCrCb color space increased accuracy a little bit over RGB. I did not see a significant improvement in accuracy when changing the orient, pix_per_cell, or cell_per_block so I kept them at 9, 8, and 2 which performed well with acceptable speed. 
+I tried various combinations of parameters trading off between speed and accuracy. I found that using 'ALL' for the hog_channel was critical in getting high accuracy, although it does triple the # of features and increase training time. I found that no matter what parameters I chose, the time for prediction was always extremely fast. I found that the YCrCb color space increased accuracy a little bit over RGB. I did not see a significant improvement in accuracy when changing the orient, pix_per_cell, or cell_per_block so I kept them at 9, 8, and 2 which performed well with acceptable speed. 
 
 My final HOG parameters can be found hard-coded in the `FeatureParameters` object, lines 30 to 38 of `run_vehicle_detection.py`
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-HOG features along with histogram and spatial features for car and non-car images are extracted on lines 84 and 85 of `run_vehicle_detection.py`. The pipeline for extracting features for each image is to convert the color space, then get spatial features with `bin_spatial()`, get color features with `color_hist()`, and HOG features with `get_hog_features()`. The pipeline for extracting the features starts with `extract_features()` in `feature_utils.py` which subsequently calls the other helper functions in `feature_utils.py`. 
+HOG features along with histogram and spatial features for car and non-car images are extracted on lines 84 and 85 of `run_vehicle_detection.py`. The pipeline for extracting features for each image is to convert the color space, then get spatial features with `bin_spatial()`, get color features with `color_hist()`, and HOG features with `get_hog_features()`. The pipeline for extracting the features starts with `extract_features()` line 105 in `feature_utils.py` which subsequently calls the other helper functions in `feature_utils.py`. 
 
-The car and non-car feature matrices are concatenated and then all of the features are scaled with `sklearn.StandardScaler()`, lines 92 to 96 of `run_vehicle_detection.py`. Next, a vector of labels with 1 for cars and 0 for cars is constructed, line 99. The data is then shuffled and split into 80% training and 20% test data to check for overfitting, line 105. 
+The car and non-car feature matrices are concatenated and then all of the features are scaled with `sklearn.StandardScaler()`, lines 92 to 96 of `run_vehicle_detection.py`. Next, a vector of labels with 1 for cars and 0 for non-cars is constructed, line 99. The data is then shuffled and split into 80% training and 20% test data to check for overfitting, line 105. 
 
 Finally, the `train_svc()` funciton is called on line 108. This function is can be found in `svc_utils.py`. It uses sklearn.LinearSVC to create a support vector machine object and then fits the training data.
 
-After training, accuracy of the fit is assessed on the test data.
+After training, accuracy of the fit is assessed on the test data. With my parameters and test data the accuracy was over 99%.
 
 ### Sliding Window Search
 
@@ -96,13 +96,13 @@ Here's a [link to my video result](./output_images/project_video_out.mp4)
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video using the `find_cars()` method mentioned above. From the positive detections I created a heatmap using the `add_heat()` function in `box_utils.py` lines 7 to 16. 
+I recorded the positions of positive detections in each frame of the video using the `find_cars()` method mentioned above. From the positive detections I created a curr_heatmap using the `add_heat()` function in `box_utils.py` lines 7 to 16. 
 
-I also kept track of a second heatmap to essentially filter the heatmap across time. This was done in lines 81 to 91 of `process_img()` in `VehicleDetector.py`. At each frame I decremented this second heatmap by 2 at all indices and then added in the results of the heatmap from the current frame. This way each pixel not identified with vehicle was decremented by 2 but pixels found in 1 window were decremented by 1, pixels find in 2 windows were kept the same, pixels find in 3 windows were incremented by 1 and so on. Over several frames, pixels that were successively not part of a vehicle window become large negative values and pixels that were successively part of a vehicle window become large positive values. So a high value represents high confidence of a vehicle present and a large negative value is the opposite. In order to allow this confidence map to change over time, I applied saturation limits of -12 and 8. 
+I also kept track of a second heatmap to filter the curr_heatmap across the video stream. This was done in lines 81 to 91 of `process_img()` in `VehicleDetector.py`. At each frame I incremented the heatmap by curr_heatmap minus 2. In this way, over a series of frames pixels with 0 or 1 detection get colder (more negative) and pixels with 3 or more detections get warmer (larger positive). I applied saturation limits of -12 and 8 to allow responsiveness to new information.
 
-Next I thresholded the heatmap at 0 to make a binary image of vehicle positions, `apply_threshold()`, lines 19 to 28 of `box_utils.py`.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap and construct bounding boxes, `draw_labeled_bboxes()`, lines 31 to 49 of `box_utils.py`
+Next I thresholded the heatmap at 0 to make a binary image of vehicle positions using`apply_threshold()`, lines 19 to 28 of `box_utils.py`.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap and construct bounding boxes, `draw_labeled_bboxes()`, lines 31 to 49 of `box_utils.py`
 
-Here's an example result showing the heatmap from a test image, the result of thresholding, and the bounding boxes then overlaid on the original image:
+Here's an example result showing the heatmap from a test image, the result of thresholding, and the bounding boxes then overlaid on the original image. In this example this is the first image of a sequence so there is no filtering of the heatmap. You can see that the binary threshold is a little tighter than the heatmap because pixels with only a single detection become -1 and are not part of the bounding box.
 
 ![alt text][image8]
 
