@@ -9,7 +9,7 @@ from moviepy.editor import VideoFileClip, ImageSequenceClip
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 
-#
+# Import local functions
 import VehicleDetector 
 from feature_utils import *
 from svc_utils import *
@@ -113,7 +113,7 @@ def test(fname='test_images/*.jpg'):
 
     # Get list of images
     fnames = glob.glob(fname)
-    # fnames = [fnames[3]]
+
     for fname in fnames:
         # Initialize new VehicleDetector object
         vehicle_detector = VehicleDetector.VehicleDetector(FeatureParams())

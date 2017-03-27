@@ -37,9 +37,9 @@ class VehicleDetector():
 
         # List of WindoParams objects for defining search windows at different scales
         self.window_params_list = []
-        # self.window_params_list.append(WindowParams(ylims=(380,610), scale=1.8, xy_skips=(1,1)))
-        # self.window_params_list.append(WindowParams(ylims=(400,520), scale=1.2, xy_skips=(2,1)))
 
+        # Create list of WindowParams
+        # Each WindowParams object in list will be used as sliding window parameters
         self.window_params_list.append(WindowParams(ylims=(350,630), scale=1.7, xy_skips=(1,1)))
         self.window_params_list.append(WindowParams(ylims=(370,570), scale=1.3, xy_skips=(1,1)))
         self.window_params_list.append(WindowParams(ylims=(400,520), scale=1.0, xy_skips=(2,2)))
@@ -159,7 +159,7 @@ class VehicleDetector():
 
         heatmap_img_out = np.zeros_like(self.orig_img)
         heatmap_img_out[:,:,2] = heatmap_scaled
-        # heatmap_img_out[:,:,1] = self.heatmap*255/np.max(self.heatmap)
+
 
         heatmap_img_out = BGR2_(heatmap_img_out, 'RGB')
 
