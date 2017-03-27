@@ -15,7 +15,7 @@ The goals / steps of this project are the following:
 [image5]: ./output_images/example1.png
 [image6]: ./output_images/example2.png
 [image7]: ./output_images/example3.png
-[image8]: ./output_images/pipeline1.png
+[image8]: ./output_images/heatmap1.png
 [video1]: ./output_images/project_video_out.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
