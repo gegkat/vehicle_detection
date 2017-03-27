@@ -10,12 +10,12 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 [image1]: ./output_images/car.png
 [image2]: ./output_images/not_car.png
-[image3]: ./output_images/HOG_example.jpg
-[image4]: ./output_images/sliding_windows.jpg
-[image5]: ./output_images/example1.jpg
-[image6]: ./output_images/example2.jpg
-[image7]: ./output_images/example3.jpg
-[image8]: ./output_images/pipeline1.jpg
+[image3]: ./output_images/HOG_example.png
+[image4]: ./output_images/sliding_windows.png
+[image5]: ./output_images/example1.png
+[image6]: ./output_images/example2.png
+[image7]: ./output_images/example3.png
+[image8]: ./output_images/pipeline1.png
 [video1]: ./output_images/project_video_out.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
@@ -112,5 +112,9 @@ Here's an example result showing the heatmap from a test image, the result of th
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+I spent the most time in this project trying to improve efficiency without sacrificing the accuracy and smoothness of the result. I found the most time consuming computation was calculating HOG features for small sliding windows. So I spent a lot of effort fine-tuning the window sizes and crop areas. 
+
+I found that training the support vector machine was very straightforward and worked well. 
+
+I would say this pipeline would be most likely to fail for cars that look different from the training data. Good training data for the support vector machine is probably the most important piece to having a successful and robust algorithm. For this to work in general, more data of more car varieties and more angles would need to be included in the training data. 
 
